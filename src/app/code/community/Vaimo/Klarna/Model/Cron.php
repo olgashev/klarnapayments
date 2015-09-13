@@ -33,9 +33,12 @@ class Vaimo_Klarna_Model_Cron extends Mage_Core_Model_Abstract
             ->addFieldToFilter("updated_at", array('gteq' => date("Y-m-d H:i:s", time() - 172800))); // 2 Days
         foreach ($orders as $order) {
             try {
-                $order->getPayment()
-                    ->registerPaymentReviewAction(Mage_Sales_Model_Order_Payment::REVIEW_ACTION_UPDATE, true);
-                $order->save();
+                $payment = $order->getPayment();
+                if (Mage::helper('klarna')->isMethodKlarna($payment->getMethod())) {
+                    $order->getPayment()
+                        ->registerPaymentReviewAction(Mage_Sales_Model_Order_Payment::REVIEW_ACTION_UPDATE, true);
+                    $order->save();
+                }
             } catch (Exception $e) {
                 // Do nothing?
             }
