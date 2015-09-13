@@ -1,5 +1,5 @@
 {
-    "name": "madepeople/klarnapayments",
+    "name": "vaimo/klarnapayments",
     "license": "Vaimo Copyright",
     "type": "magento-module",
     "description": "Vaimo_Klarna",
