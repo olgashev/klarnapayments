@@ -1,0 +1,15 @@
+{
+    "name": "vaimo/klarnapayments",
+    "license": "Vaimo Copyright",
+    "type": "magento-module",
+    "description": "Vaimo_Klarna",
+    "authors": [
+        {
+            "name": "Vaimo",
+            "email":"info@vaimo.com"
+        }
+    ],
+    "require": {
+        "magento-hackathon/magento-composer-installer": "*"
+    }
+}
