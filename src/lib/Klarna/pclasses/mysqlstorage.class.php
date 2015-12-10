@@ -117,7 +117,7 @@ class MySQLStorage extends PCStorage
      */
     public function connect()
     {
-        $this->link = mysql_connect($this->addr, $this->user, $this->passwd);
+        $this->link = @mysql_connect($this->addr, $this->user, $this->passwd);
         if ($this->link === false) {
             throw new Klarna_DatabaseException(
                 'Failed to connect to database! ('.mysql_error().')'
