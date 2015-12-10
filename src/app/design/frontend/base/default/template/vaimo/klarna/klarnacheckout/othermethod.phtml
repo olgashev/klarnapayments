@@ -24,6 +24,7 @@
  */
 
 $button_name = $this->getOthermethodButtonName();
+$changeId = $this->triggerChangedJSInputId();
 
 ?>
 
@@ -39,9 +40,9 @@ $button_name = $this->getOthermethodButtonName();
 
 <?php endif; ?>
 
-<?php if ($this->updateWhenPostcodeChanges()): ?>
+<?php if ($changeId): ?>
 
-    <input id="klarna-checkout-shipping-update" type="hidden" value="<?php echo $this->getUrl('checkout/klarna/addressUpdate') ?>" />
+    <input id="<?php echo $changeId ?>" type="hidden" value="<?php echo $this->getUrl('checkout/klarna/addressUpdate') ?>" />
 
 <?php endif; ?>
 

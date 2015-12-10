@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright (c) 2009-2014 Vaimo AB
  *
@@ -23,34 +22,24 @@
  * @package     Vaimo_Klarna
  * @copyright   Copyright (c) 2009-2014 Vaimo AB
  */
-class Vaimo_Klarna_Model_Source_Apiversion extends Vaimo_Klarna_Model_Source_Abstract
+
+class Vaimo_Klarna_Model_Resource_Pushqueue_Collection extends Mage_Core_Model_Resource_Db_Collection_Abstract
 {
-
-    /**
-     * Options getter
-     *
-     * @return array
-     */
-    public function toOptionArray()
+    protected function _construct()
     {
-        return array(
-            array('value' => Vaimo_Klarna_Helper_Data::KLARNA_KCO_API_VERSION_STD, 'label' => $this->_getHelper()->__('KCO V.2')),
-            array('value' => Vaimo_Klarna_Helper_Data::KLARNA_KCO_API_VERSION_UK,  'label' => $this->_getHelper()->__('KCO V.3 (UK)')),
-            array('value' => Vaimo_Klarna_Helper_Data::KLARNA_KCO_API_VERSION_USA, 'label' => $this->_getHelper()->__('KCO V.3.1 (US)')),
-        );
+        parent::_construct();
+        $this->_init('klarna/pushqueue');
     }
 
     /**
-     * Get options in "key-value" format
+     * Apply retry filter
      *
-     * @return array
+     * @return Vaimo_Klarna_Model_Resource_Pushqueue_Collection
      */
-    public function toArray()
+    public function applyRetryFilter($maxCnt)
     {
-        return array(
-            Vaimo_Klarna_Helper_Data::KLARNA_KCO_API_VERSION_STD => $this->_getHelper()->__('KCO V.2'),
-            Vaimo_Klarna_Helper_Data::KLARNA_KCO_API_VERSION_UK  => $this->_getHelper()->__('KCO V.3 (UK)'),
-            Vaimo_Klarna_Helper_Data::KLARNA_KCO_API_VERSION_USA => $this->_getHelper()->__('KCO V.3.1 (US)'),
-        );
+        $this->getSelect()->where('retry_attempts < ?', $maxCnt);
+        return $this;
     }
+
 }

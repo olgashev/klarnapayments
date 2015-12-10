@@ -108,6 +108,34 @@ class Vaimo_Klarna_Model_Observer extends Mage_Core_Model_Abstract
         $this->_getSession()->setKlarnaUseOtherMethods(false);
     }
 
+    /*
+     * Making sure the status is Klarna Reserved after a
+     *
+     * @param Varien_Event_Observer $observer
+     */
+    public function checkForKlarnaStatusChange($observer)
+    {
+        $order = $observer->getEvent()->getOrder();
+        $method = $order->getPayment()->getMethod();
+        if (Mage::helper('klarna')->isMethodKlarna($method)) {
+            $orderOriginal = Mage::getModel('sales/order')->load($order->getId());
+            if ($orderOriginal->getState()==Mage_Sales_Model_Order::STATE_PAYMENT_REVIEW) {
+                if ($order->getState()==Mage_Sales_Model_Order::STATE_PROCESSING) {
+                    $klarna = Mage::getModel('klarna/klarna');
+                    $klarna->setOrder($order);
+                    $order->setStatus($klarna->getConfigData('order_status'));
+                }
+            }
+            if ($orderOriginal->getState()==Mage_Sales_Model_Order::STATE_HOLDED) {
+                if ($order->getState()==Mage_Sales_Model_Order::STATE_NEW) {
+                    $klarna = Mage::getModel('klarna/klarna');
+                    $klarna->setOrder($order);
+                    $order->setStatus($klarna->getConfigData('order_status'));
+                }
+            }
+        }
+    }
+
 // KLARNA CHECKOUT FROM HERE
 
     public function customerAddressFormat(Varien_Event_Observer $observer)
@@ -139,11 +167,13 @@ class Vaimo_Klarna_Model_Observer extends Mage_Core_Model_Abstract
             $klarna = Mage::getModel('klarna/klarnacheckout');
             $klarna->setQuote($quote, Vaimo_Klarna_Helper_Data::KLARNA_METHOD_CHECKOUT);
             if ($klarna->getKlarnaCheckoutEnabled()) {
-                $controllerAction = $observer->getControllerAction();
-                $controllerAction->getResponse()
-                    ->setRedirect(Mage::getUrl('checkout/klarna'))
-                    ->sendResponse();
-                exit;
+                if (!$klarna->getConfigData('explicit_usage')) {
+                    $controllerAction = $observer->getControllerAction();
+                    $controllerAction->getResponse()
+                        ->setRedirect(Mage::getUrl('checkout/klarna'))
+                        ->sendResponse();
+                    exit;
+                }
             }
         }
     }
@@ -167,14 +197,17 @@ class Vaimo_Klarna_Model_Observer extends Mage_Core_Model_Abstract
                 $class = get_class($controller);
                 $action = $controller->getRequest()->getActionName();
                 $clearFlag = false;
-                if ((!stristr($class, 'checkout') && !stristr($class, 'ajax') && !stristr($class, 'klarna')) ||
-                    (stristr($class, 'checkout') && !stristr($class, 'ajax') &&  stristr($class, 'cart'))) {
-                    $clearFlag = true;
+                if ($action!='noRoute') {
+                    if ((!stristr($class, 'checkout') && !stristr($class, 'ajax') && !stristr($class, 'klarna')) ||
+                        (stristr($class, 'checkout') && !stristr($class, 'ajax') &&  stristr($class, 'cart'))) {
+                        $clearFlag = true;
+                    }
                 }
                 if ((stristr($class, 'customer_account') && stristr($action, 'loginPost'))) {
                     $clearFlag = false;
                 }
                 if ($clearFlag) {
+                    Mage::helper('klarna')->logDebugInfo('checkDisableUseOtherMethods clearFlag is true. class = ' . $class . ' and action = ' . $action);
                     $this->_getSession()->setKlarnaUseOtherMethods(false);
                     $payment = $quote->getPayment();
                     $payment->setMethod(Vaimo_Klarna_Helper_Data::KLARNA_METHOD_CHECKOUT);

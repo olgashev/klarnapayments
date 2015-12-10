@@ -22,18 +22,31 @@
  * @package     Vaimo_Klarna
  * @copyright   Copyright (c) 2009-2014 Vaimo AB
  */
-?>
-<?php
-$_helper = Mage::helper('klarna');
-?>
 
+class Vaimo_Klarna_Model_Resource_Pushqueue extends Mage_Core_Model_Resource_Db_Abstract
+{
+    protected function _construct()
+    {
+        $this->_init('klarna/pushqueue', 'id');
+    }
 
-<div id="klarna_loader" class="klarna_loader"><img src="<?php echo $this->getSkinUrl('images/opc-ajax-loader.gif')?>" alt="" id="klarna_loader_img" /></div>
+    public function loadByKlarnaOrderNumber(Vaimo_Klarna_Model_Pushqueue $pushqueue, $klarnaOrderNumber)
+    {
+        $adapter = $this->_getReadAdapter();
+        $pushqueueTable   = $this->getTable('klarna/pushqueue');
+        $bind    = array('klarna_order_number' => $klarnaOrderNumber);
+        $select  = $adapter->select()
+            ->from($pushqueueTable)
+            ->where('klarna_order_number = :klarna_order_number');
 
-<div class="page-title">
-    <h1 class="klarna_page-title"><?php echo $_helper->__('Shopping Cart') ?></h1>
-</div>
+        $pushQueueId = $adapter->fetchOne($select, $bind);
+        if ($pushQueueId) {
+            $this->load($pushqueue, $pushQueueId);
+        } else {
+            $pushqueue->setData(array());
+        }
 
-<?php echo $this->getChildHtml('klarna_msg'); ?>
+        return $this;
+    }
 
-<?php echo $this->getMessagesBlock()->getGroupedHtml() ?>
+}
