@@ -694,8 +694,10 @@ class Vaimo_Klarna_Checkout_KlarnaController extends Mage_Core_Controller_Front_
                 $errors = $cart->getQuote()->getErrors();
                 $messages = array();
 
-                foreach ($errors as $error) {
-                    $messages[] = $error->getCode();
+                if (!empty($errors)) {
+                    foreach ($errors as $error) {
+                        $messages[] = $error->getCode();
+                    }
                 }
 
                 if (count($messages) > 0) {
