@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Copyright (c) 2009-2014 Vaimo AB
  *
@@ -23,34 +22,33 @@
  * @package     Vaimo_Klarna
  * @copyright   Copyright (c) 2009-2014 Vaimo AB
  */
-class Vaimo_Klarna_Model_Source_Apiversion extends Vaimo_Klarna_Model_Source_Abstract
+
+class Vaimo_Klarna_Model_Pushqueue extends Mage_Core_Model_Abstract
 {
-
-    /**
-     * Options getter
-     *
-     * @return array
-     */
-    public function toOptionArray()
+    protected function _construct()
     {
-        return array(
-            array('value' => Vaimo_Klarna_Helper_Data::KLARNA_KCO_API_VERSION_STD, 'label' => $this->_getHelper()->__('KCO V.2')),
-            array('value' => Vaimo_Klarna_Helper_Data::KLARNA_KCO_API_VERSION_UK,  'label' => $this->_getHelper()->__('KCO V.3 (UK)')),
-            array('value' => Vaimo_Klarna_Helper_Data::KLARNA_KCO_API_VERSION_USA, 'label' => $this->_getHelper()->__('KCO V.3.1 (US)')),
-        );
+        parent::_construct();
+        $this->_init('klarna/pushqueue');
     }
 
     /**
-     * Get options in "key-value" format
+     * Register queue creation date
      *
-     * @return array
+     * @return Mage_Core_Model_Abstract|void
      */
-    public function toArray()
+    protected function _beforeSave()
     {
-        return array(
-            Vaimo_Klarna_Helper_Data::KLARNA_KCO_API_VERSION_STD => $this->_getHelper()->__('KCO V.2'),
-            Vaimo_Klarna_Helper_Data::KLARNA_KCO_API_VERSION_UK  => $this->_getHelper()->__('KCO V.3 (UK)'),
-            Vaimo_Klarna_Helper_Data::KLARNA_KCO_API_VERSION_USA => $this->_getHelper()->__('KCO V.3.1 (US)'),
-        );
+        parent::_beforeSave();
+
+        if (!$this->getCreatedAt()) {
+            $this->setCreatedAt(Mage::getSingleton('core/date')->gmtDate());
+        }
     }
+
+    public function loadByKlarnaOrderNumber($klarnaOrderNumber)
+    {
+        $this->_getResource()->loadByKlarnaOrderNumber($this, $klarnaOrderNumber);
+        return $this;
+    }
+
 }

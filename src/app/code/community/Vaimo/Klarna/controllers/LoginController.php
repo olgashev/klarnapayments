@@ -60,20 +60,29 @@ class Vaimo_Klarna_LoginController extends Mage_Core_Controller_Front_Action
                 }
                 if ($logged_in) {
                     $r["message"] = $blk->__("Logged in");
+                    $r["reload_checkout"] = 1;
                 } else {
                     $r["r_code"] = -3;
                     $r["message"] = $blk->__("Wrong password");
                 }
             }
         }
-
+/*
+ Horrible code... and for no apparent reason, perhaps for customisation of layouts... but still, very bad idea!
         if ($r["r_code"]>0 && ($blk_type = $req->getParam("block"))) {
             $tmplt = $req->getParam("template");
             $tmplt = $tmplt ? $tmplt : $blk_type . ".phtml";
             $block = Mage::app()->getLayout()->createBlock($blk_type);
             $r["block_html"] = $block->setTemplate($tmplt)->toHtml();
         }
-
+*/
+        if ($req->getParam("block")) {
+            Mage::helper('klarna')->logDebugInfo(
+                'Block is no longer an approved parameter to loginPost, please update your code (' .
+                $req->getParam("block") .
+                ')'
+            );
+        }
         $this->getResponse()->setBody(Zend_Json::encode($r));
     }
 
