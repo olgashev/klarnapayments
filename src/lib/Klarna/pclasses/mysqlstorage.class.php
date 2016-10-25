@@ -117,10 +117,10 @@ class MySQLStorage extends PCStorage
      */
     public function connect()
     {
-        $this->link = @mysql_connect($this->addr, $this->user, $this->passwd);
+        $this->link = new PDO('mysql:host=' . $this->addr . ';dbname=' . $this->dbName . ';charset=utf8mb4', $this->user, $this->passwd);
         if ($this->link === false) {
             throw new Klarna_DatabaseException(
-                'Failed to connect to database! ('.mysql_error().')'
+                'Failed to connect to database!'
             );
         }
     }
@@ -241,16 +241,11 @@ class MySQLStorage extends PCStorage
     {
         $this->splitURI($uri);
         $this->connect();
-        $result = mysql_query(
-            "SELECT * FROM `{$this->dbName}`.`{$this->dbTable}`",
-            $this->link
+        $stmt = $this->link->query(
+            "SELECT * FROM `{$this->dbName}`.`{$this->dbTable}`"
         );
-        if ($result === false) {
-            throw new Klarna_DatabaseException(
-                'SELECT query failed! ('.mysql_error().')'
-            );
-        }
-        while ($row = mysql_fetch_assoc($result)) {
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($results as $row) {
             $this->addPClass(new KlarnaPClass($row));
         }
     }
@@ -275,14 +270,14 @@ class MySQLStorage extends PCStorage
         foreach ($this->pclasses as $pclasses) {
             foreach ($pclasses as $pclass) {
                 //Remove the pclass if it exists.
-                mysql_query(
+                $this->link->exec(
                     "DELETE FROM `{$this->dbName}`.`{$this->dbTable}`
                      WHERE `id` = '{$pclass->getId()}'
                      AND `eid` = '{$pclass->getEid()}'"
                 );
 
                 //Insert it again.
-                $result = mysql_query(
+                $this->link->exec(
                     "INSERT INTO `{$this->dbName}`.`{$this->dbTable}`
                        (`eid`,
                         `id`,
@@ -307,13 +302,8 @@ class MySQLStorage extends PCStorage
                         '{$pclass->getStartFee()}',
                         '{$pclass->getMinAmount()}',
                         '{$pclass->getCountry()}',
-                        '{$pclass->getExpire()}')", $this->link
+                        '{$pclass->getExpire()}')"
                 );
-                if ($result === false) {
-                    throw new Klarna_DatabaseException(
-                        'INSERT INTO query failed! ('.mysql_error().')'
-                    );
-                }
             }
         }
     }
@@ -333,9 +323,8 @@ class MySQLStorage extends PCStorage
             unset($this->pclasses);
             $this->connect();
 
-            mysql_query(
-                "DELETE FROM `{$this->dbName}`.`{$this->dbTable}`",
-                $this->link
+            $this->link->exec(
+                "DELETE FROM `{$this->dbName}`.`{$this->dbTable}`"
             );
         } catch(Exception $e) {
             throw new Klarna_DatabaseException(
