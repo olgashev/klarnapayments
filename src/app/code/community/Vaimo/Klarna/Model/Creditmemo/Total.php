@@ -45,16 +45,6 @@ class Vaimo_Klarna_Model_Creditmemo_Total extends Mage_Sales_Model_Order_Creditm
         return $this->_moduleHelper;
     }
 
-    protected function _isLoggedIn()
-    {
-        return Mage::getSingleton('admin/session')->isLoggedIn();
-    }
-
-    protected function _getRequest($param)
-    {
-        return Mage::app()->getRequest()->getParam($param);
-    }
-
     /**
      * Collect the order total
      *
@@ -71,21 +61,7 @@ class Vaimo_Klarna_Model_Creditmemo_Total extends Mage_Sales_Model_Order_Creditm
          */
         $order = $creditmemo->getOrder();
         $invoice = $creditmemo->getInvoice();
-        if ($this->_isLoggedIn()) {
-            $data = $this->_getRequest('creditmemo');
-            if ($data) {
-                if (isset($data['vaimo_klarna_fee_refund'])) {
-                    if ($data['vaimo_klarna_fee_refund']=='') {
-                        $data['vaimo_klarna_fee_refund'] = 0;
-                    }
-                    $refundAmount = $data['vaimo_klarna_fee_refund'];
-                    $store = $order->getStore();
-                    $baseRefundAmount = $store->convertPrice($refundAmount, false);
-                    $creditmemo->setVaimoKlarnaFeeRefund($refundAmount);
-                    $creditmemo->setVaimoKlarnaBaseFeeRefund($baseRefundAmount);
-                }
-            }
-        }
+        $this->_getHelper()->prepareVaimoKlarnaFeeRefund($creditmemo);
 
         if ($order) {
             $payment = $order->getPayment();
@@ -134,12 +110,12 @@ class Vaimo_Klarna_Model_Creditmemo_Total extends Mage_Sales_Model_Order_Creditm
                         return $this;
                     }
 
-                    $refundedExVat = round($klarnaFeeRefunded * $rate,0);
+                    $refundedExVat = round($klarnaFeeRefunded * $rate,2);
                     $refundedVat = $klarnaFeeRefunded - $refundedExVat;
                     $klarnaFee = $klarnaFee - $refundedExVat;
                     $klarnaFeeTax = $klarnaFeeTax - $refundedVat;
 
-                    $baseRefundedExVat = round($baseKlarnaFeeRefunded * $rate,0);
+                    $baseRefundedExVat = round($baseKlarnaFeeRefunded * $rate,2);
                     $baseRefundedVat = $baseKlarnaFeeRefunded - $baseRefundedExVat;
                     $baseKlarnaFee = $baseKlarnaFee - $baseRefundedExVat;
                     $baseKlarnaFeeTax = $baseKlarnaFeeTax - $baseRefundedVat;
@@ -154,8 +130,8 @@ class Vaimo_Klarna_Model_Creditmemo_Total extends Mage_Sales_Model_Order_Creditm
                         $baseCreditmemoTotal = $baseCreditmemoTotal + $baseKlarnaFeeRefund;
                         $creditmemoTotal = $creditmemoTotal + $klarnaFeeRefund;
 
-                        $klarnaFee = round($klarnaFeeRefund * $rate,0);
-                        $baseKlarnaFee = round($baseKlarnaFeeRefund * $rate,0);
+                        $klarnaFee = round($klarnaFeeRefund * $rate,2);
+                        $baseKlarnaFee = round($baseKlarnaFeeRefund * $rate,2);
                     } else {
                         $baseCreditmemoTotal = $baseCreditmemoTotal + $baseKlarnaFee + $baseKlarnaFeeTax;
                         $creditmemoTotal = $creditmemoTotal + $klarnaFee + $klarnaFeeTax;

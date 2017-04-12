@@ -35,15 +35,55 @@ class Vaimo_Klarna_Block_Klarnacheckout_Klarnacheckout extends Mage_Core_Block_T
         return $this->getCheckout()->getQuote();
     }
 
+    protected function _getKlarnaOrderHtml()
+    {
+        /** @var Vaimo_Klarna_Helper_Data $helper */
+        $helper = Mage::helper('klarna');
+        try {
+            $helper->logDebugInfo('getKlarnaOrderHtml');
+            /** @var Vaimo_Klarna_Model_Klarnacheckout $klarna */
+            $klarna = Mage::getModel('klarna/klarnacheckout');
+            $klarna->setQuote($this->getQuote(), Vaimo_Klarna_Helper_Data::KLARNA_METHOD_CHECKOUT);
+            $checkoutId = $klarna->getQuote()->getKlarnaCheckoutId();
+            $helper->setCheckoutId($checkoutId);
+            $html = $klarna->getKlarnaOrderHtml($checkoutId, true, true);
+        } catch (Exception $e) {
+            $quote = $helper->findQuote($checkoutId);
+            $orderCreated = false;
+            if ($quote && $quote->getId()) {
+                $order = Mage::getModel('sales/order')->load($quote->getId(), 'quote_id');
+                if ($order->getId()) {
+                    $orderCreated = true;
+                }
+            }
+            if ($quote && ($quote->getId() != $klarna->getQuote()->getId() || !$quote->getIsActive() || $orderCreated)) {
+                if (!$quote->getIsActive()) {
+                    $helper->logDebugInfo('getKlarnaOrderHtml failed. ' . $e->getMessage() . '. Exiting since quote is inactive ' . $quote->getId(), null, $checkoutId);
+                } elseif ($order->getId()) {
+                    $helper->logDebugInfo('getKlarnaOrderHtml failed. ' . $e->getMessage() . '. Exiting since quote has already created an order ' . $order->getIncrementId(), null, $checkoutId);
+                } else {
+                    $helper->logDebugInfo('getKlarnaOrderHtml failed. ' . $e->getMessage() . '. Exiting since quote is wrong' . $quote->getId(), null, $checkoutId);
+                }
+                if ($quote->getIsActive()) {
+                    $quote->setIsActive(false);
+                    $quote->save();
+                }
+                $helper->logKlarnaException($e);
+                Mage::throwException($helper->__('Current cart is not active. Please try again'));
+            } else {
+                $helper->logDebugInfo('getKlarnaOrderHtml failed with checkout id: ' . $checkoutId . '. Trying with null.', null, $checkoutId);
+                $klarna->getQuote()->setKlarnaCheckoutId(null);
+                $html = $klarna->getKlarnaOrderHtml(null, true, true);
+            }
+        }
+        $helper->logDebugInfo('getKlarnaOrderHtml succeeded', null, $checkoutId);
+        return $html;
+    }
+
     public function getKlarnaHtml()
     {
         try {
-            $klarna = Mage::getModel('klarna/klarnacheckout');
-            $klarna->setQuote($this->getQuote(), Vaimo_Klarna_Helper_Data::KLARNA_METHOD_CHECKOUT);
-            // Want to send down kco id here, but then it will not call updateOrder
-            // in initKlarnaOrder, which is just ugly code... Need to fix that!
-            // $klarna->getQuote()->getKlarnaCheckoutId()
-            $html = $klarna->getKlarnaOrderHtml(NULL, true, true);
+            $html = $this->_getKlarnaOrderHtml();
         } catch (Exception $e) {
             Mage::helper('klarna')->logKlarnaException($e);
             $html = $e->getMessage();
@@ -59,6 +99,11 @@ class Vaimo_Klarna_Block_Klarnacheckout_Klarnacheckout extends Mage_Core_Block_T
                     $extraInfo
                 );
             }
+            $this->getCheckout()->addError($html);
+            Mage::app()->getResponse()
+                ->setRedirect(Mage::getBaseUrl() . Mage::helper('klarna')->getKCORedirectToCartUrl($this->getQuote()->getStoreId()))
+                ->sendResponse();
+            exit(0);
         }
 
         return $html;

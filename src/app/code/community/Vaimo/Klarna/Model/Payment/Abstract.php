@@ -25,6 +25,8 @@
 
 class Vaimo_Klarna_Model_Payment_Abstract extends Mage_Payment_Model_Method_Abstract
 {
+    const EXTENDED_ERROR_MESSAGE = 'show_extended_error_message';
+
     protected $_isGateway               = false;
     protected $_canAuthorize            = true;
     protected $_canVoid                 = true;
@@ -86,8 +88,13 @@ class Vaimo_Klarna_Model_Payment_Abstract extends Mage_Payment_Model_Method_Abst
     public function canCapture()
     {
         $klarna = $this->_getKlarnaModel();
-        $klarna->setQuote($this->getQuote(), $this->_code);
-        if ($klarna->getConfigData('disable_backend_calls')) return false;
+        $info = $this->getInfoInstance();
+        if ($info->getOrder()) {
+            $order = $info->getOrder();
+            $klarna->setInfoInstance($this->getInfoInstance());
+            $klarna->setOrder($order);
+            if ($klarna->getConfigData('disable_backend_calls')) return false;
+        }
         return true;
     }
 
@@ -98,7 +105,20 @@ class Vaimo_Klarna_Model_Payment_Abstract extends Mage_Payment_Model_Method_Abst
 
     public function canCapturePartial()
     {
-        return $this->canCapture();
+        $res = $this->canCapture();
+        $klarna = $this->_getKlarnaModel();
+        $info = $this->getInfoInstance();
+        if ($info->getOrder()) {
+            $order = $info->getOrder();
+            $klarna->setInfoInstance($this->getInfoInstance());
+            $klarna->setOrder($order);
+            if (!$klarna->getConfigData('allow_part_capture_with_discount')) {
+                if ($klarna->orderHasDiscount()) {
+                    $res = false;
+                }
+            }
+        }
+        return $res;
     }
 
     public function canRefundInvoicePartial()
@@ -137,11 +157,13 @@ class Vaimo_Klarna_Model_Payment_Abstract extends Mage_Payment_Model_Method_Abst
                     if (isset($serviceMethod['group'])) {
                         if (isset($serviceMethod['group']['title']) && isset($serviceMethod['title'])) {
                             $presetTitle = $serviceMethod['group']['title'];
+                            /*
                             if ($serviceMethod['vaimo_klarna_method']==Vaimo_Klarna_Helper_Data::KLARNA_METHOD_INVOICE ||
                                 $serviceMethod['vaimo_klarna_method']==Vaimo_Klarna_Helper_Data::KLARNA_METHOD_SPECIAL) {
                                 $presetTitle =  $serviceMethod['title'];
 //                                $presetTitle .= ' ' . $serviceMethod['title'];
                             }
+                            */
                             break;
                         }
                     }
@@ -303,6 +325,25 @@ class Vaimo_Klarna_Model_Payment_Abstract extends Mage_Payment_Model_Method_Abst
     }
 
     /**
+     * Check if exception message can be shown to customer
+     *
+     * @param  Exception $e
+     * @return boolean
+     */
+    protected function _canShowExceptionMessage(Exception $e)
+    {
+        if ($this->_getHelper()->isXmlRpcException($e)) {
+            return false;
+        }
+        if (!$this->_getConfigData(self::EXTENDED_ERROR_MESSAGE)) {
+            if ($e->getCode() && $e->getMessage()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * Authorize the purchase
      *
      * @param Varien_Object $payment Magento payment model
@@ -363,7 +404,16 @@ class Vaimo_Klarna_Model_Payment_Abstract extends Mage_Payment_Model_Method_Abst
             $payment->setTransactionId($transactionId)
                 ->setIsTransactionClosed(0);
         } catch (Mage_Core_Exception $e) {
-            Mage::throwException($this->_getHelper()->__('Technical problem occurred while using %s payment method. Please try again later.', $klarna->getMethodTitleWithFee()));
+            if ($this->_canShowExceptionMessage($e)) {
+                Mage::throwException($e->getMessage());
+            } else {
+                Mage::throwException(
+                    $this->_getHelper()->__(
+                        'Technical problem occurred while using %s payment method. Please try again later.',
+                        $klarna->getMethodTitleWithFee()
+                    )
+                );
+            }
         }
         return $this;
     }

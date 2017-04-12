@@ -25,7 +25,10 @@
 
 class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckout_Abstract
 {
+    /* @var Vaimo_Klarna_Model_Api_Abstract $_api */
     protected $_api = NULL;
+
+    protected $_orderMessages = array();
 
     public function __construct($setStoreInfo = true, $moduleHelper = NULL, $coreHttpHelper = NULL, $coreUrlHelper = NULL, $customerHelper = NULL)
     {
@@ -36,7 +39,7 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
     /**
      * Function added for Unit testing
      *
-     * @param $apiObject
+     * @param Vaimo_Klarna_Model_Api_Abstract $apiObject
      */
     public function setApi($apiObject)
     {
@@ -72,7 +75,6 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
      */
     protected function _init($functionName)
     {
-        $this->_getHelper()->setFunctionNameForLog($this->_getHelper()->getFunctionNameForLog() . '-' . $functionName);
         $this->_initApi($this->_getStoreId(), $this->getMethod(), $functionName);
         $this->_api->init($this->getKlarnaSetup());
         $this->_api->setTransport($this->_getTransport());
@@ -82,18 +84,20 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
     public function getKlarnaOrderHtml($checkoutId = null, $createIfNotExists = false, $updateItems = false)
     {
         $this->_init(Vaimo_Klarna_Helper_Data::KLARNA_API_CALL_KCODISPLAY_ORDER);
-        if ($checkoutId) {
-            $this->_getHelper()->logKlarnaApi('Call with checkout ID ' . $checkoutId);
-        } else {
-            $this->_getHelper()->logKlarnaApi('Call with checkout ID NULL');
-        }
+        $this->_getHelper()->logKlarnaCheckoutFunctionStart($checkoutId, Vaimo_Klarna_Helper_Data::KLARNA_API_CALL_KCODISPLAY_ORDER);
         if ($this->getQuote()) {
-            $this->_api->initKlarnaOrder($checkoutId, $createIfNotExists, $updateItems, $this->getQuote()->getId());
+            $quote = $this->getQuote();
+            if ($quote->getKlarnaCheckoutId()) {
+                if ($checkoutId!=$quote->getKlarnaCheckoutId()) {
+                    $this->_getHelper()->logDebugInfo('POTENTIAL ERROR. getKlarnaOrderHtml on quote: ' . $quote->getKlarnaCheckoutId(), null, $checkoutId);
+                }
+            }
+            $this->_api->initKlarnaOrder($checkoutId, $createIfNotExists, $updateItems, $quote->getId());
         } else {
             $this->_api->initKlarnaOrder($checkoutId, $createIfNotExists, $updateItems);
         }
         $res = $this->_api->getKlarnaCheckoutGui();
-        $this->_getHelper()->logKlarnaApi('Call complete');
+        $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
         return $res;
     }
 
@@ -106,18 +110,24 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
      *
      * @return string
      */
-    public function getCheckoutStatus($checkoutId = null)
+    public function getCheckoutStatus($checkoutId = null, $useCurrentSession = true)
     {
         $this->_init(Vaimo_Klarna_Helper_Data::KLARNA_API_CALL_KCODISPLAY_ORDER);
-        if ($checkoutId) {
-            $this->_getHelper()->logKlarnaApi('Call with checkout ID ' . $checkoutId);
+        $this->_getHelper()->logKlarnaCheckoutFunctionStart($checkoutId, Vaimo_Klarna_Helper_Data::KLARNA_API_CALL_KCODISPLAY_ORDER);
+        $this->_api->setKlarnaOrderSessionCache($useCurrentSession);
+        if ($this->getQuote()) {
+            $quote = $this->getQuote();
+            if ($quote->getKlarnaCheckoutId()) {
+                if ($checkoutId!=$quote->getKlarnaCheckoutId()) {
+                    $this->_getHelper()->logDebugInfo('POTENTIAL ERROR. getKlarnaOrderHtml on quote: ' . $quote->getKlarnaCheckoutId(), null, $checkoutId);
+                }
+            }
+            $this->_api->initKlarnaOrder($checkoutId, false, false, $quote->getId());
         } else {
-            $this->_getHelper()->logKlarnaApi('Call with checkout ID NULL');
+            $this->_api->initKlarnaOrder($checkoutId);
         }
-        $this->_api->setKlarnaOrderSessionCache(true);
-        $this->_api->initKlarnaOrder($checkoutId);
         $res = $this->_api->getKlarnaCheckoutStatus();
-        $this->_getHelper()->logKlarnaApi('Call complete');
+        $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
         return $res;
     }
 
@@ -130,6 +140,11 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
         return $this->_api->getActualKlarnaOrder();
     }
 
+    public function getActualKlarnaOrderArray()
+    {
+        return $this->_api->getActualKlarnaOrderArray();
+    }
+
     /*
      * Will return the klarna order or null, if it doesn't find it
      * Not used by this module, but as a service for others.
@@ -138,32 +153,27 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
     public function getKlarnaOrderRaw($checkoutId)
     {
         $this->_init(Vaimo_Klarna_Helper_Data::KLARNA_API_CALL_KCODISPLAY_ORDER);
-        if ($checkoutId) {
-            $this->_getHelper()->logKlarnaApi('Call with checkout ID ' . $checkoutId);
-        } else {
-            $this->_getHelper()->logKlarnaApi('Call with checkout ID NULL');
-        }
+        $this->_getHelper()->logKlarnaCheckoutFunctionStart($checkoutId, Vaimo_Klarna_Helper_Data::KLARNA_API_CALL_KCODISPLAY_ORDER);
         $res = $this->_api->getKlarnaOrderRaw($checkoutId);
-        $this->_getHelper()->logKlarnaApi('Call complete');
+        $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
         return $res;
     }
 
-    protected function _reduceParentItem($quote, $id, $qty)
-    {
-        foreach ($quote->getItemsCollection() as $item) {
-            if ($item->getId()==$id) {
-                $item->setQty($qty);
-                $item->save();
-            }
-        }
-    }
-
+    /**
+     * Checks if items has enough stock, if not, it will remove the item (if adjustFlag is set)
+     *
+     * @param $quote
+     * @param bool $adjustFlag
+     * @return array|null
+     */
     protected function _checkItems($quote, $adjustFlag = false)
     {
-        $res = NULL;
+        $res = null;
         $simpleQty = array();
+        /** @var Mage_Sales_Model_Quote_Item $item */
         foreach ($quote->getItemsCollection() as $item) {
-            if ($item->getProductType()=='simple') {
+            if ($item->getProductType() == Mage_Catalog_Model_Product_Type::TYPE_SIMPLE) {
+                /** @var Mage_CatalogInventory_Model_Stock_Item $stockItem */
                 $stockItem = Mage::getModel('cataloginventory/stock_item')->loadByProduct($item->getProductId());
                 if ($stockItem->getId()) {
                     if (isset($simpleQty[$item->getSku()])) {
@@ -174,13 +184,19 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
                     if (!$stockItem->checkQty($simpleQty[$item->getSku()])) {
                         if (!$res) $res = array();
                         $res[] = $this->_getHelper()->__('The requested quantity for "%s" is not available.', $item->getName());
+                        $this->_getHelper()->logDebugInfo('The requested quantity ' . $simpleQty[$item->getSku()] . ', available ' . $stockItem->getQty() . ' for SKU ' . $item->getSku(), $item->getData());
                         if ($adjustFlag) {
-                            $qty = 0;
-                            $item->setData('qty', $qty);
-                            $item->save();
+                            $this->_orderMessages[] = $this->_getHelper()->__(
+                                'The requested quantity (%s) for SKU "%s" is not available. Product deleted from this order, but it still exists on the Klarna reservation.',
+                                $simpleQty[$item->getSku()],
+                                $item->getSku()
+                            );
                             if ($item->getParentItemId()) {
-                                $this->_reduceParentItem($quote, $item->getParentItemId(), $qty);
+                                $quote->removeItem($item->getParentItemId());
+                            } else {
+                                $quote->removeItem($item->getId());
                             }
+                            $quote->setTotalsCollectedFlag(false);
                         }
                     }
                 }
@@ -189,26 +205,30 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
         return $res;
     }
 
-    public function validateQuote($checkoutId, $createOrderOnValidate = NULL, $createdKlarnaOrder = NULL)
+    public function validateQuote($checkoutId, $createOrderOnValidate = NULL, $createdKlarnaOrder = NULL, $logInfo = 'validate')
     {
         $this->_init(Vaimo_Klarna_Helper_Data::KLARNA_API_CALL_KCOVALIDATE_ORDER);
+        $this->_getHelper()->logKlarnaCheckoutFunctionStart($checkoutId, Vaimo_Klarna_Helper_Data::KLARNA_API_CALL_KCOVALIDATE_ORDER);
 
         /** @var Mage_Sales_Model_Quote $quote */
         $quote = $this->getQuote();
 
         if (!$quote->getId()) {
-            $this->_getHelper()->logDebugInfo('validateQuote could not get quote');
+            $this->_getHelper()->logDebugInfo($logInfo . 'Quote could not get quote', null, $checkoutId);
+            $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
             return $this->_getHelper()->__('could not get quote');
         }
 
         if (!$quote->hasItems()) {
-            $this->_getHelper()->logDebugInfo('validateQuote has no items');
+            $this->_getHelper()->logDebugInfo($logInfo . 'Quote has no items', null, $checkoutId);
+            $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
             return $this->_getHelper()->__('has no items');
         }
 
         $result = $this->_checkItems($quote);
 
         if ($result) {
+            $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
             return implode("\n", $result);
         }
 
@@ -222,25 +242,29 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
             if (sizeof($result)==0) {
                 $result = array('Unknown error');
             }
-            $this->_getHelper()->logDebugInfo('validateQuote errors: ' . implode(" ", $result));
+            $this->_getHelper()->logDebugInfo($logInfo . 'Quote errors: ' . implode(" ", $result), null, $checkoutId);
+            $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
             return implode("\n", $result);
         }
 
         if (!$quote->validateMinimumAmount()) {
-            $this->_getHelper()->logDebugInfo('validateQuote below minimum amount');
+            $this->_getHelper()->logDebugInfo($logInfo . 'Quote below minimum amount', null, $checkoutId);
+            $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
             return $this->_getHelper()->__('minimum amount');
         }
 
         $orderId = $this->_findAlreadyCreatedOrder($quote->getId());
         if ($orderId>0) {
-            $this->_getHelper()->logDebugInfo('validateQuote order already created ' . $orderId);
+            $this->_getHelper()->logDebugInfo($logInfo . 'Quote order already created ' . $orderId, null, $checkoutId);
+            $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
             return $this->_getHelper()->__('order already created');
         }
 
         if ($createdKlarnaOrder) {
             $noticeTextArr = $this->_checkQuote($quote, $createdKlarnaOrder);
             if ($noticeTextArr!=NULL) {
-                $this->_getHelper()->logDebugInfo('validateQuote failed in checkQuote', $noticeTextArr);
+                $this->_getHelper()->logDebugInfo($logInfo . 'Quote failed in checkQuote', $noticeTextArr, $checkoutId);
+                $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
                 return $this->_getHelper()->__('not matching cart');
             }
         }
@@ -248,22 +272,75 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
         if ($createOrderOnValidate && $createdKlarnaOrder) {
             // As validation is ok, creating the order should work, if it doesn't, it's
             // probably a temporary reason and we should reserve ID and await the push
-            $order = $this->_createValidateOrder($checkoutId, $quote, $createdKlarnaOrder);
+            $order = $this->_createOrderFromValidate($quote, $createdKlarnaOrder, $logInfo);
             if ($order && $order->getId()) {
-                $this->_getHelper()->logDebugInfo('validateQuote created order id: ' . $order->getId());
+                $this->_getHelper()->logDebugInfo($logInfo . 'Quote created order id: ' . $order->getId(), null, $checkoutId);
             } else {
-                $this->_getHelper()->logDebugInfo('validateQuote failed to created order');
-                $quote->reserveOrderId()->save();
-                $this->_getHelper()->logDebugInfo('validateQuote reserved order id: ' . $quote->getReservedOrderId());
+                $this->_getHelper()->logDebugInfo($logInfo . 'Quote failed to created order', null, $checkoutId);
+                $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
+                return $this->_getHelper()->__('failed to created order');
+                //$quote->reserveOrderId()->save(); // Must be wrong...
+                //$this->_getHelper()->logDebugInfo($logInfo . 'Quote reserved order id: ' . $quote->getReservedOrderId());
             }
         } else {
+            $quote->collectTotals();
             $quote->reserveOrderId()->save();
-            $this->_getHelper()->logDebugInfo('validateQuote reserved order id: ' . $quote->getReservedOrderId());
+            $this->_getHelper()->logDebugInfo($logInfo . 'Quote reserved order id: ' . $quote->getReservedOrderId(), null, $checkoutId);
         }
 
+        $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
         return true;
     }
 
+    /**
+     * @param string $checkoutId
+     * @param bool $createOrderOnSuccess
+     * @param Varien_Object $createdKlarnaOrder
+     *
+     * @return bool|string
+     * @deprecated Use successActionForQuote instead
+     */
+    public function successQuote($checkoutId, $createOrderOnSuccess, $createdKlarnaOrder)
+    {
+        return $this->successActionForQuote($checkoutId, $createOrderOnSuccess, $createdKlarnaOrder);
+    }
+
+    /**
+     * @param string $checkoutId
+     * @param bool $createOrderOnSuccess
+     * @param Varien_Object $createdKlarnaOrder
+     *
+     * @return bool|string
+     */
+    public function successActionForQuote($checkoutId, $createOrderOnSuccess, $createdKlarnaOrder)
+    {
+        $res = true;
+        /** @var Mage_Sales_Model_Quote $quote */
+        $quote = $this->getQuote();
+        // Moving the close of quote to always take place instantly in successAction, even if validateQuote will
+        // close it when it creates the order, but it might take a little bit of time AND it might fail...
+        $this->_getHelper()->logDebugInfo('successAction closing quote id: ' . $quote->getId(), null, $checkoutId);
+        // Why not these lines?
+        //$quote->setIsActive(false);
+        //$quote->save();
+        /** @var Mage_Core_Model_Resource $resource */
+        $resource = Mage::getSingleton('core/resource');
+        $read = $resource->getConnection('core_read');
+        $read->update($resource->getTableName('sales/quote'), array('is_active' => 0), 'entity_id = ' . $quote->getId());
+        if ($createOrderOnSuccess) {
+            try {
+
+                $res = $this->validateQuote($checkoutId, $createOrderOnSuccess, $createdKlarnaOrder, 'success');
+
+            } catch (Exception $e) {
+                $res = $this->_getHelper()->__('failed to created order on success') . ': ' . $e->getMessage();
+            }
+
+        } else {
+            // Why don't we set reserve order id on Quote??
+        }
+        return $res;
+    }
     /**
      * This function checks valid shippingMethod
      *
@@ -275,7 +352,7 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
     public function checkShippingMethod()
     {
         // set shipping method
-        $res = NULL;
+        $res = false;
         $quote = $this->getQuote();
         $shippingAddress = $quote->getShippingAddress();
         if (!$quote->isVirtual() && $shippingAddress && !$shippingAddress->getShippingMethod()) {
@@ -295,15 +372,15 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
               Changing country at this point is not accurate, it was set to that country
               for a reason, the fact that it lacks region and postocode, should not cause
               a country change..
-              
+
               Possibly, it should default to some region if the country demands one...
-            
-            if (Mage::helper('klarna')->getDefaultCountry()!=$shippingAddress->getCountryId()) {
+
+            if ($this->_getHelper()->getDefaultCountry()!=$shippingAddress->getCountryId()) {
                 if (!$shippingAddress->getRegionId() && !$shippingAddress->getPostcode()) {
-                    $shippingAddress->setCountryId(Mage::helper('klarna')->getDefaultCountry());
+                    $shippingAddress->setCountryId($this->_getHelper()->getDefaultCountry());
                 }
             }
-            
+
             */
             $shippingAddress->setCollectShippingRates(true);
             $shippingAddress->collectTotals();
@@ -351,15 +428,14 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
                 $res[] = $shippingNotice;
             }
 
-            if ($res) {
-                $quote->collectTotals();
-            }
+            $quote->collectTotals();
 
         } catch(Exception $e) {
-            $res = $e->getMessage();
+            if (!$res) $res = array();
+            $res[] = $e->getMessage();
         }
         if ($res) {
-            $this->_getHelper()->logDebugInfo('_checkQuote return', $res);
+            $this->_getHelper()->logDebugInfo('_checkQuote return', $res, $createdKlarnaOrder->getId());
         }
         return $res;
     }
@@ -401,6 +477,10 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
 
     protected function _createTheOrder($quote, $createdKlarnaOrder, $updatef, $pushf, $noticeTextArr = NULL)
     {
+        $this->_getHelper()->logDebugInfo('_createTheOrder quote ID: ' . $quote->getId());
+
+        $this->_getHelper()->checkPaymentMethod($quote, true);
+
         $autoRegisterGuest = $this->getConfigData('auto_register_guest');
         $isAllowedGuestCheckout = Mage::helper('checkout')->isAllowedGuestCheckout($quote);
 
@@ -417,47 +497,34 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
             } else {
                 /** @var $customer Mage_Customer_Model_Customer */
                 $customer = $this->_loadCustomerByEmail($createdKlarnaOrder->getBillingAddress('email'), $quote->getStore());
-                if ($customer->getId()) {
-                    $quote->setCustomer($customer);
-                    $quote->setCheckoutMethod('customer');
-                } elseif ($autoRegisterGuest || !$isAllowedGuestCheckout) {
-                    $quote->setCheckoutMethod('register');
-                    $isNewCustomer = true;
+                if ($autoRegisterGuest || !$isAllowedGuestCheckout) {
+                    if ($customer->getId()) {
+                        $quote->setCustomer($customer);
+                        $quote->setCheckoutMethod('customer');
+                    } else {
+                        $quote->setCheckoutMethod('register');
+                        $isNewCustomer = true;
+                    }
                 } else {
                     $quote->setCheckoutMethod(Mage_Sales_Model_Quote::CHECKOUT_METHOD_GUEST);
                 }
             }
 
             $billingAddress = $quote->getBillingAddress();
-            $customerAddressId = 0;
-
-            if ($customerAddressId) {
-                $customerAddress = $this->_loadCustomerAddress($customerAddressId);
-                if ($customerAddress->getId()) {
-                    if ($customerAddress->getCustomerId() != $this->getQuote()->getCustomerId()) {
-                        throw new Exception('Customer Address is not valid');
-                    }
-
-                    $billingAddress->importCustomerAddress($customerAddress)->setSaveInAddressBook(0);
-                }
-            } else {
-                $billingAddress->setFirstname($createdKlarnaOrder->getBillingAddress('given_name'));
-                $billingAddress->setLastname($createdKlarnaOrder->getBillingAddress('family_name'));
-                $billingAddress->setCareOf($createdKlarnaOrder->getBillingAddress('care_of'));
-                $billingAddress->setStreet($createdKlarnaOrder->getBillingAddress('street_address'));
-                $billingAddress->setPostcode($createdKlarnaOrder->getBillingAddress('postal_code'));
-                $billingAddress->setCity($createdKlarnaOrder->getBillingAddress('city'));
-                $billingAddress->setCountryId(strtoupper($createdKlarnaOrder->getBillingAddress('country')));
-                $billingAddress->setEmail($createdKlarnaOrder->getBillingAddress('email'));
-                $billingAddress->setTelephone($createdKlarnaOrder->getBillingAddress('phone'));
-                $billingAddress->setSaveInAddressBook(1);
-                if ($billingRegionCode) {
-                    $billingRegionId = Mage::getModel('directory/region')->loadByCode($billingRegionCode, $billingAddress->getCountryId());
-                    $billingAddress->setRegionId($billingRegionId->getId());
-                }
+            $billingAddress->setFirstname($createdKlarnaOrder->getBillingAddress('given_name'));
+            $billingAddress->setLastname($createdKlarnaOrder->getBillingAddress('family_name'));
+            $billingAddress->setCareOf($createdKlarnaOrder->getBillingAddress('care_of'));
+            $billingAddress->setStreet($createdKlarnaOrder->getBillingAddress('street_address'));
+            $billingAddress->setPostcode($createdKlarnaOrder->getBillingAddress('postal_code'));
+            $billingAddress->setCity($createdKlarnaOrder->getBillingAddress('city'));
+            $billingAddress->setCountryId(strtoupper($createdKlarnaOrder->getBillingAddress('country')));
+            $billingAddress->setEmail($createdKlarnaOrder->getBillingAddress('email'));
+            $billingAddress->setTelephone($createdKlarnaOrder->getBillingAddress('phone'));
+            $billingAddress->setSaveInAddressBook(1);
+            if ($billingRegionCode) {
+                $billingRegionId = Mage::getModel('directory/region')->loadByCode($billingRegionCode, $billingAddress->getCountryId());
+                $billingAddress->setRegionId($billingRegionId->getId());
             }
-
-//            $this->_validateCustomerData($data);
 
             $shippingAddress = $quote->getShippingAddress();
             $shippingAddress->setFirstname($createdKlarnaOrder->getShippingAddress('given_name'));
@@ -469,6 +536,7 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
             $shippingAddress->setCountryId(strtoupper($createdKlarnaOrder->getShippingAddress('country')));
             $shippingAddress->setEmail($createdKlarnaOrder->getShippingAddress('email'));
             $shippingAddress->setTelephone($createdKlarnaOrder->getShippingAddress('phone'));
+            $shippingAddress->setSaveInAddressBook(0);
             if ($shippingRegionCode) {
                 $shippingRegionId = Mage::getModel('directory/region')->loadByCode($shippingRegionCode, $shippingAddress->getCountryId());
                 $shippingAddress->setRegionId($shippingRegionId->getId());
@@ -477,9 +545,17 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
             if ($this->getConfigData('packstation_enabled')) {
                 $shippingAddress->setSameAsBilling(0);
             } else {
-                $shippingAddress->setSameAsBilling(1);
+                if ($this->getConfigData('allow_separate_address')) {
+                    if (!$this->_addressIsSame($billingAddress, $shippingAddress)) {
+                        $shippingAddress->setSameAsBilling(0);
+                        $shippingAddress->setSaveInAddressBook(1);
+                    } else {
+                        $shippingAddress->setSameAsBilling(1);
+                    }
+                } else {
+                    $shippingAddress->setSameAsBilling(1);
+                }
             }
-            $shippingAddress->setSaveInAddressBook(0);
 
             $quote->getBillingAddress()->setShouldIgnoreValidation(true);
             $quote->getShippingAddress()->setShouldIgnoreValidation(true);
@@ -499,9 +575,11 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
                     break;
             }
 
+            // Some variables are not saved, so we can not trust it was done some other time
+            // Before we create the order, we NEED to run this to collectTotals...
             $quote->setTotalsCollectedFlag(false);
             $quote->collectTotals();
-            $quote->save();
+            //$quote->save();
 
             Mage::dispatchEvent('klarnacheckout_quote_before_create_order', array(
                     'quote' => $quote,
@@ -532,6 +610,12 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
         /** @var $order Mage_Sales_Model_Order */
         $order = $this->_loadOrderByKey($quote->getId());
 
+        if (!$order->getId()) {
+            Mage::throwException($this->_getHelper()->__('Order cannot be created, cart not valid') . ' ' . $quote->getId());
+        }
+
+        $this->_getHelper()->logDebugInfo('_createTheOrder order ID: ' . $order->getId());
+
         if ($pushf) {
             if ($order->getState()==Mage_Sales_Model_Order::STATE_PENDING_PAYMENT) {
                 $order->setState(
@@ -544,6 +628,10 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
         }
 
         $payment = $order->getPayment();
+
+        if (!$payment) {
+            $this->_getHelper()->logDebugInfo('_createTheOrder payment is null');
+        }
 
         if ($createdKlarnaOrder->getReference()) {
             $payment->setAdditionalInformation(Vaimo_Klarna_Helper_Data::KLARNA_INFO_FIELD_REFERENCE, $createdKlarnaOrder->getReference());
@@ -575,6 +663,15 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
         }
         $payment->save();
 
+        $this->_getHelper()->logDebugInfo('_createTheOrder payment ID: ' . $payment->getId());
+
+        if ($this->_orderMessages) {
+            foreach ($this->_orderMessages as $message) {
+                $order->addStatusHistoryComment($message);
+            }
+            $order->save();
+        }
+
         if ($pushf) {
             // send new order email
             if ($order->getCanSendNewEmailFlag()) {
@@ -597,9 +694,13 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
             try {
                 $this->_getHelper()->dispatchMethodEvent($order, Vaimo_Klarna_Helper_Data::KLARNA_DISPATCH_RESERVED, $order->getTotalDue(), $this->getMethod());
 
-                Mage::dispatchEvent('checkout_onepage_controller_success_action', array('order_ids' => array($order->getId())) );
+                // This will not help GA at least, since no layout block is defined in here, since it's a callback.
+                // But I will leave it, if someone else has used it
+                // Most modules listening to this event, expects there to be a front controller available, when there isn't one it crashes
+                // So I'm taking this out
+                //Mage::dispatchEvent('checkout_onepage_controller_success_action', array('order_ids' => array($order->getId())) );
 
-                $this->_getHelper()->logDebugInfo('successfully created order with no: ' . $order->getIncrementId());
+                $this->_getHelper()->logDebugInfo('_createTheOrder order number: ' . $order->getIncrementId());
 
             } catch(Exception $e) {
                 $this->_getHelper()->logKlarnaException($e);
@@ -609,14 +710,8 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
 
     }
 
-    protected function _createValidateOrder($checkoutId, $quote, $createdKlarnaOrder)
+    protected function _createOrderFromValidate($quote, $createdKlarnaOrder, $logInfo)
     {
-        if ($checkoutId) {
-            $this->_getHelper()->logKlarnaApi('Call with checkout ID ' . $checkoutId);
-        } else {
-            $this->_getHelper()->logKlarnaApi('Call with checkout ID NULL');
-        }
-
         $this->_updateKlarnaOrderAddress($createdKlarnaOrder);
 
         $order = $this->_createTheOrder($quote, $createdKlarnaOrder, false, false);
@@ -624,24 +719,40 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
         $order->setState(
             Mage_Sales_Model_Order::STATE_PENDING_PAYMENT,
             true,
-            $this->_getHelper()->__('Order created during validation, waiting for confirmation')
+            $this->_getHelper()->__('Order created during %s, waiting for confirmation', $logInfo)
         );
         $order->save();
 
         return $order;
     }
 
-    public function createOrder($checkoutId = NULL)
+    /**
+     * @param null|string $checkoutId
+     * @param bool $force
+     *
+     * @return array
+     * @deprecated Use createOrderFromPush instead
+     */
+    public function createOrder($checkoutId = null, $force = true)
+    {
+        return $this->createOrderFromPush($checkoutId, $force);
+    }
+
+    /**
+     * @param null|string $checkoutId
+     * @param bool $force
+     *
+     * @return array
+     */
+    public function createOrderFromPush($checkoutId = NULL, $force = true)
     {
         $this->_init(Vaimo_Klarna_Helper_Data::KLARNA_API_CALL_KCOCREATE_ORDER);
-        if ($checkoutId) {
-            $this->_getHelper()->logKlarnaApi('Call with checkout ID ' . $checkoutId);
-        } else {
-            $this->_getHelper()->logKlarnaApi('Call with checkout ID NULL');
-        }
+        $this->_getHelper()->logKlarnaCheckoutFunctionStart($checkoutId, Vaimo_Klarna_Helper_Data::KLARNA_API_CALL_KCOCREATE_ORDER);
         $createdKlarnaOrder = $this->_api->fetchCreatedOrder($checkoutId);
+        $this->_getHelper()->logKlarnaDebug('createOrderFromPush', $createdKlarnaOrder->getData(), $checkoutId);
         if (!$createdKlarnaOrder) {
-            $this->_getHelper()->logDebugInfo('createOrder could not fetch createdKlarnaOrder');
+            $this->_getHelper()->logDebugInfo('createOrderFromPush could not fetch createdKlarnaOrder');
+            $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
             return array(
                 'status' => 'retry',
                 'message' => 'could not fetch createdKlarnaOrder'
@@ -652,7 +763,8 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
         if ($quote == null) {
             $quote = $this->_api->loadQuote();
             if (!$quote) {
-                $this->_getHelper()->logDebugInfo('createOrder could not get quote');
+                $this->_getHelper()->logDebugInfo('createOrderFromPush could not get quote');
+                $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
                 return array(
                     'status' => 'fail',
                     'message' => 'could not get quote'
@@ -660,35 +772,48 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
             }
             $this->setQuote($quote);
         }
+        $this->_getHelper()->updateKlarnacheckoutHistory($checkoutId, null, $quote->getId(), null, $createdKlarnaOrder->getReservation());
+
+        if (!$quote->hasItems()) {
+            return array(
+                'status' => 'retry',
+                'message' => 'quote has no items'
+                );
+        }
 
         $noticeTextArr = $this->_checkQuote($quote, $createdKlarnaOrder);
 
         $this->_updateKlarnaOrderAddress($createdKlarnaOrder);
 
-        if ($createdKlarnaOrder->getStatus() != 'checkout_complete' && $createdKlarnaOrder->getStatus() != 'created') {
-            $this->_getHelper()->logDebugInfo('createOrder status not complete');
-            return array(
-                'status' => 'retry',
-                'message' => 'status not complete'
-                );
+        $klarnaStatus = $createdKlarnaOrder->getStatus();
+        $this->_getHelper()->logDebugInfo('createOrderFromPush status of Klarna Order: ' . $klarnaStatus);
+
+        if ($klarnaStatus != 'checkout_complete' && $klarnaStatus != 'created' && $klarnaStatus != 'AUTHORIZED') {
+            $this->_getHelper()->logDebugInfo('createOrderFromPush status not complete');
+            // These statuses are only valid for Rest API, need to test for v2 API codes as well
+            if ($klarnaStatus == 'CANCELLED' || $klarnaStatus == 'EXPIRED' || $klarnaStatus == 'CLOSED') {
+                $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
+                return array(
+                    'status' => 'fail',
+                    'message' => 'authorization not valid ' . $createdKlarnaOrder->getStatus()
+                    );
+            } else {
+                $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
+                return array(
+                    'status' => 'retry',
+                    'message' => 'status not complete ' . $createdKlarnaOrder->getStatus()
+                    );
+            }
         }
 
         $updatef = false;
         $orderId = $this->_findAlreadyCreatedOrder($quote->getId());
         if ($orderId>0) {
-            $this->_getHelper()->logDebugInfo('createOrder order already created ' . $orderId);
-            if (($createdKlarnaOrder->getStatus() == 'checkout_complete') || ($createdKlarnaOrder->getStatus() == 'created')) {
-                $order = $this->_loadOrderByKey($quote->getId());
-                $updatef = true;
-            }
-/*
-            return array(
-                'status' => 'fail',
-                'message' => 'order already created'
-                );
-*/
+            $this->_getHelper()->logDebugInfo('createOrderFromPush order already created, with ID ' . $orderId);
+            $updatef = true;
+        } else {
+            $this->_getHelper()->logDebugInfo('createOrderFromPush will create new order in Magento');
         }
-
         $order = $this->_createTheOrder($quote, $createdKlarnaOrder, $updatef, true, $noticeTextArr);
 
         try {
@@ -704,6 +829,7 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
             $this->_getHelper()->logKlarnaException($e);
         }
 
+        $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
         return array(
             'status' => 'success',
             'order' => $order
@@ -719,7 +845,7 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
             return false;
         }
 
-        if (!$this->getConfigData('activate_ab_testing')) {
+        if ($this->getConfigData('activate_ab_testing')) {
 
             if ($this->_getCustomerHelper()->isLoggedIn() && !$this->getConfigData('allow_when_logged_in')) {
                 return false;
@@ -757,13 +883,12 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
         return true;
     }
 
-    public function updateTaxAndShipping($data)
+    public function updateTaxAndShipping($quote, $data)
     {
         $this->_init(Vaimo_Klarna_Helper_Data::KLARNA_API_CALL_KCOCREATE_ORDER);
 
         $newAddress = new Varien_Object($data['shipping_address']);
-        Mage::helper('klarna')->logDebugInfo('taxshippingupdate A' . $newAddress->getGivenName());
-        $quote = $this->getQuote();
+        $this->_getHelper()->logDebugInfo('taxshippingupdate A' . $newAddress->getGivenName());
         $address = $quote->getShippingAddress();
         $address->setFirstname($newAddress->getGivenName());
         $address->setLastname($newAddress->getFamilyName());
@@ -796,35 +921,36 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
         $quote->collectTotals();
         $quote->save();
         $this->setQuote($quote);
-        Mage::helper('klarna')->logDebugInfo('taxshippingupdate A' . $quote->getId());
+        $this->_getHelper()->logDebugInfo('taxshippingupdate A ' . $quote->getId());
 
         $res = $this->_api->prepareTaxAndShippingReply();
-        Mage::helper('klarna')->logDebugInfo('taxshippingupdate B' . $res);
+        $this->_getHelper()->logDebugInfo('taxshippingupdate B ' . $res);
         return $res;
     }
 
     public function checkNewsletter()
     {
         // set newsletter subscribe based on settings
-        if ($this->getQuote()->getKlarnaCheckoutNewsletter() == null) {
+        $res = false;
+        $quote = $this->getQuote();
+        if ($quote->getKlarnaCheckoutNewsletter() == null) {
             $type = (int)$this->getConfigData('enable_newsletter');
             $checked = (bool)$this->getConfigData('newsletter_checked');
 
             if (($type == Vaimo_Klarna_Helper_Data::KLARNA_CHECKOUT_NEWSLETTER_SUBSCRIBE && $checked)
                 || ($type == Vaimo_Klarna_Helper_Data::KLARNA_CHECKOUT_NEWSLETTER_DONT_SUBSCRIBE && !$checked)) {
-                $this->getQuote()->setKlarnaCheckoutNewsletter(1);
+                $quote->setKlarnaCheckoutNewsletter(1);
             } else {
-                $this->getQuote()->setKlarnaCheckoutNewsletter(0);
+                $quote->setKlarnaCheckoutNewsletter(0);
             }
-            $this->getQuote()->save();
+            $res = true;
         }
 
-        return $this;
+        return $res;
     }
 
     protected function _getTransport()
     {
         return $this;
     }
-
 }

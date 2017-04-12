@@ -866,13 +866,18 @@
 		*/
 		var $user_agent;
 
+		function __construct($path, $server='', $port='', $method='')
+		{
+			$this->xmlrpc_client($path, $server, $port, $method);
+		}
+
 		/**
 		* @param string $path either the complete server URL or the PATH part of the xmlrc server URL, e.g. /xmlrpc/server.php
 		* @param string $server the server name / ip address
 		* @param integer $port the port the server is listening on, defaults to 80 or 443 depending on protocol used
 		* @param string $method the http protocol variant: defaults to 'http', 'https' and 'http11' can be used if CURL is installed
 		*/
-		function __construct($path, $server='', $port='', $method='')
+		function xmlrpc_client($path, $server='', $port='', $method='')
 		{
 			// allow user to specify all params in $path
 			if($server == '' and $port == '' and $method == '')
@@ -1933,6 +1938,11 @@
 		var $content_type = 'text/xml';
 		var $raw_data = '';
 
+		function __construct($val, $fcode = 0, $fstr = '', $valtyp='')
+		{
+			$this->xmlrpcresp($val, $fcode, $fstr, $valtyp);
+		}
+
 		/**
 		* @param mixed $val either an xmlrpcval obj, a php value or the xml serialization of an xmlrpcval (a string)
 		* @param integer $fcode set it to anything but 0 to create an error response
@@ -1943,7 +1953,7 @@
 		* NB: as of now we do not do it, since it might be either an xmlrpcval or a plain
 		* php val, or a complete xml chunk, depending on usage of xmlrpc_client::send() inside which creator is called...
 		*/
-		function __construct($val, $fcode = 0, $fstr = '', $valtyp='')
+		function xmlrpcresp($val, $fcode = 0, $fstr = '', $valtyp='')
 		{
 			if($fcode != 0)
 			{
@@ -2087,11 +2097,16 @@ xmlrpc_encode_entitites($this->errstr, $GLOBALS['xmlrpc_internalencoding'], $cha
 		var $debug=0;
 		var $content_type = 'text/xml';
 
+		function __construct($meth, $pars=0)
+		{
+			$this->xmlrpcmsg($meth, $pars);
+		}
+
 		/**
 		* @param string $meth the name of the method to invoke
 		* @param array $pars array of parameters to be paased to the method (xmlrpcval objects)
 		*/
-		function __construct($meth, $pars=0)
+		function xmlrpcmsg($meth, $pars=0)
 		{
 			$this->methodname=$meth;
 			if(is_array($pars) && count($pars)>0)
@@ -2710,11 +2725,16 @@ xmlrpc_encode_entitites($this->errstr, $GLOBALS['xmlrpc_internalencoding'], $cha
 		var $mytype=0;
 		var $_php_class=null;
 
+		function __construct($val=-1, $type='')
+		{
+			$this->xmlrpcval($val, $type);
+		}
+
 		/**
 		* @param mixed $val
 		* @param string $type any valid xmlrpc type name (lowercase). If null, 'string' is assumed
 		*/
-		function __construct($val=-1, $type='')
+		function xmlrpcval($val=-1, $type='')
 		{
 			/// @todo: optimization creep - do not call addXX, do it all inline.
 			/// downside: booleans will not be coerced anymore
