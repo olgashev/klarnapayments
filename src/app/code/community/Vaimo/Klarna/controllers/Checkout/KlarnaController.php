@@ -229,21 +229,11 @@ class Vaimo_Klarna_Checkout_KlarnaController extends Mage_Core_Controller_Front_
             return;
         }
 
-        $updateQuote = false;
-        if (Mage::helper('klarna')->checkPaymentMethod($quote)) {
-            $updateQuote = true;
-        }
-        if ($this->_checkShippingMethod()) {
-            $updateQuote = true;
-        }
-        if ($this->_checkNewsletter()) {
-            $updateQuote = true;
-        }
+        $quote->getShippingAddress()->setCollectShippingRates(true);
+        $quote->setTotalsCollectedFlag(false);
+        $quote->collectTotals();
+        $quote->save();
 
-        if ($updateQuote) {
-            $quote->collectTotals();
-            $quote->save();
-        }
         $this->loadLayout();
         $this->_initLayoutMessages('customer/session');
         $this->getLayout()->getBlock('head')->setTitle($this->__('Klarna Checkout'));

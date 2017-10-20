@@ -163,7 +163,7 @@
 "2 columns with right sidebar","2 kolumner med varukorg på höger sida"
 "Show login form","Visa inloggning"
 "Only for 2 column layout","Enbart 2 kolumn layout"
-"Order Summary", "Order Summary"
+"Order Summary", "Sammanfattning"
 "E-mail", "E-post"
 "Password", "Lösenord"
 "Login", "Logga in"
@@ -200,8 +200,8 @@
 "Allow part capture when orders have discount","Tillåt del aktivering när ordrar har rabatter"
 "Due to how discounts are added on the Klarna reservation, part capturing an order with a discount can result in too low amounts being captured. Activate on your own risk.","På grund av hur rabatter läggs till i Klarnas reservation, att del aktivera kan orsaka att för låg summa fångas. Aktivera på egen risk."
 
-"Shopping Cart","Varurkorg"
-"Choose shipping method","Visa leverans alternativ"
+"Shopping Cart","Varukorg"
+"Choose shipping method","Välj fraktsätt"
 "Quantity","Antal"
 "Payment cancelled or some error occured. Please try again.","Betalningen avbruten eller så uppstod ett fel. Vänligen försök igen."
 
