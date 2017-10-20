@@ -315,9 +315,17 @@ class Vaimo_Klarna_Model_Api_Kco extends Vaimo_Klarna_Model_Api_Abstract
             $create['options']['packstation_enabled'] = true;
         }
 
+        /* Get checkout design config value */
+        $create['options'] = Mage::helper('klarna')->getCheckoutDesignConfig();
+
         $this->_addUserDefinedVariables($create);
 
+        if ($this->_getTransport()->getConfigData('api_base_url')) {
+            $pushUrl = $this->_getTransport()->getConfigData('api_base_url') . 'checkout/klarna/push?klarna_order={checkout.order.id}';
+        } else {
         $pushUrl = Mage::getUrl('checkout/klarna/push?klarna_order={checkout.order.id}', array('_nosid' => true));
+        }
+
         if (substr($pushUrl, -1, 1) == '/') {
             $pushUrl = substr($pushUrl, 0, strlen($pushUrl) - 1);
         }
@@ -325,7 +333,11 @@ class Vaimo_Klarna_Model_Api_Kco extends Vaimo_Klarna_Model_Api_Abstract
         $create['merchant']['push_uri'] = $pushUrl;
 
         if ($this->_getTransport()->getConfigData('enable_validation')) {
+            if ($this->_getTransport()->getConfigData('api_base_url')) {
+                $validateUrl = $this->_getTransport()->getConfigData('api_base_url') . 'checkout/klarna/validate?klarna_order={checkout.order.id}';
+            } else {
             $validateUrl = Mage::getUrl('checkout/klarna/validate?klarna_order={checkout.order.id}', array('_nosid' => true));
+            }
             if (substr($validateUrl, -1, 1) == '/') {
                 $validateUrl = substr($validateUrl, 0, strlen($validateUrl) - 1);
             }
@@ -531,7 +543,7 @@ class Vaimo_Klarna_Model_Api_Kco extends Vaimo_Klarna_Model_Api_Abstract
     }
 
     /**
-     * @param null $checkoutId
+     * @param null|string $checkoutId
      * @param bool $createIfNotExists
      * @param bool $updateItems
      * @param string $quoteId
@@ -720,10 +732,15 @@ class Vaimo_Klarna_Model_Api_Kco extends Vaimo_Klarna_Model_Api_Abstract
         return NULL;
     }
 
+    /**
+     * @param string $checkoutId
+     * @return null|Varien_Object
+     */
     public function fetchCreatedOrder($checkoutId)
     {
         $this->initKlarnaOrder($checkoutId);
         if ($this->_klarnaOrder) {
+            /** @var Varien_Object $order */
             $order = new Varien_Object($this->_klarnaOrder->marshal());
             if ($order) {
                 return $order;
@@ -760,10 +777,16 @@ class Vaimo_Klarna_Model_Api_Kco extends Vaimo_Klarna_Model_Api_Abstract
         return false;
     }
 
+    /**
+     * @param Varien_Object $createdKlarnaOrder
+     * @param Mage_Sales_Model_Quote $quote
+     * @return array|null
+     */
     public function sanityTestQuote($createdKlarnaOrder, $quote)
     {
         $res = null;
 
+        /** @var Mage_Sales_Model_Quote_Item $quoteItem */
         foreach ($quote->getAllVisibleItems() as $quoteItem) {
             $foundf = false;
             $data = $createdKlarnaOrder->getData();
@@ -796,4 +819,78 @@ class Vaimo_Klarna_Model_Api_Kco extends Vaimo_Klarna_Model_Api_Abstract
         return $res;
     }
 
+    /**
+     * @param Varien_Object $createdKlarnaOrder
+     * @param Mage_Sales_Model_Quote $quote
+     * @param bool $adjust
+     * @return array
+     */
+    public function checkQuotePrices($createdKlarnaOrder, $quote, $adjust = false)
+    {
+        $res = array();
+
+        /** @var Mage_Sales_Model_Quote_Item $quoteItem */
+        foreach ($quote->getAllVisibleItems() as $quoteItem) {
+            if ($quoteItem->getProductType() == Mage_Catalog_Model_Product_Type::TYPE_BUNDLE) {
+                continue;
+            }
+            $data = $createdKlarnaOrder->getData();
+            if (!empty($data['cart']['items'])) {
+                $reference = substr(Mage::helper('klarna')->getProductReference(
+                    $quoteItem->getSku(),
+                    $quoteItem->getAdditionalData()
+                ), 0, 64);
+                foreach ($data['cart']['items'] as $klarnaItem) {
+                    if ($klarnaItem['reference'] == $reference) {
+                        $price = $quoteItem->getPriceInclTax();
+                        $oldPrice = $klarnaItem['unit_price']/100;
+                        if ($oldPrice != $price) {
+                            $res[] = sprintf(Mage::helper('klarna')->__('Price has changed on product %s; was %s, now %s'), $quoteItem->getSku(), $oldPrice, $price);
+                            if ($adjust) {
+                                $quoteItem->setCustomPrice($oldPrice)->setOriginalCustomPrice($oldPrice)->save();
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $res;
+    }
+
+    /**
+     * @param Varien_Object $createdKlarnaOrder
+     * @param Mage_Sales_Model_Order $order
+     * @return array
+     */
+    public function checkOrderPrices($createdKlarnaOrder, $order)
+    {
+        $res = array();
+
+        /** @var Mage_Sales_Model_Order_Item $orderItem */
+        foreach ($order->getAllVisibleItems() as $orderItem) {
+            if ($orderItem->getProductType() == Mage_Catalog_Model_Product_Type::TYPE_BUNDLE) {
+                continue;
+            }
+            $data = $createdKlarnaOrder->getData();
+            if (!empty($data['cart']['items'])) {
+                $reference = substr(Mage::helper('klarna')->getProductReference(
+                    $orderItem->getSku(),
+                    $orderItem->getAdditionalData()
+                ), 0, 64);
+                foreach ($data['cart']['items'] as $klarnaItem) {
+                    if ($klarnaItem['reference'] == $reference) {
+                        $price = $orderItem->getPriceInclTax();
+                        $oldPrice = $klarnaItem['unit_price']/100;
+                        if ($oldPrice != $price) {
+                            $res[] = sprintf(Mage::helper('klarna')->__('Price has changed on product %s; was %s, now %s'), $orderItem->getSku(), $oldPrice, $price);
+                        }
+                    }
+                }
+            }
+        }
+
+        return $res;
+    }
 }

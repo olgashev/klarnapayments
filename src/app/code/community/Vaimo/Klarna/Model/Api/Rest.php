@@ -528,7 +528,11 @@ class Vaimo_Klarna_Model_Api_Rest extends Vaimo_Klarna_Model_Api_Abstract
             );
         }
 
+        if ($this->_getTransport()->getConfigData('api_base_url')) {
+            $pushUrl = $this->_getTransport()->getConfigData('api_base_url') . 'checkout/klarna/push?klarna_order={checkout.order.id}';
+        } else {
         $pushUrl = Mage::getUrl('checkout/klarna/push?klarna_order={checkout.order.id}', array('_nosid' => true));
+        }
         if (substr($pushUrl, -1, 1) == '/') {
             $pushUrl = substr($pushUrl, 0, strlen($pushUrl) - 1);
         }
@@ -543,7 +547,11 @@ class Vaimo_Klarna_Model_Api_Rest extends Vaimo_Klarna_Model_Api_Abstract
         $create['merchant_urls']['push'] = $pushUrl;
 
         if ($this->_getTransport()->getConfigData('enable_validation')) {
+            if ($this->_getTransport()->getConfigData('api_base_url')) {
+                $validateUrl = $this->_getTransport()->getConfigData('api_base_url') . 'checkout/klarna/validate?klarna_order={checkout.order.id}';
+            } else {
             $validateUrl = Mage::getUrl('checkout/klarna/validate?klarna_order={checkout.order.id}', array('_nosid' => true));
+            }
             if (substr($validateUrl, -1, 1) == '/') {
                 $validateUrl = substr($validateUrl, 0, strlen($validateUrl) - 1);
             }
@@ -1281,4 +1289,28 @@ class Vaimo_Klarna_Model_Api_Rest extends Vaimo_Klarna_Model_Api_Abstract
         return $res;
     }
 
+    /**
+     * @param Varien_Object $createdKlarnaOrder
+     * @param Mage_Sales_Model_Quote $quote
+     * @param bool $adjust
+     * @return array
+     */
+    public function checkQuotePrices($createdKlarnaOrder, $quote, $adjust = false)
+    {
+        $res = array();
+
+        return $res;
+    }
+
+    /**
+     * @param Varien_Object $createdKlarnaOrder
+     * @param Mage_Sales_Model_Order $order
+     * @return array
+     */
+    public function checkOrderPrices($createdKlarnaOrder, $order)
+    {
+        $res = array();
+
+        return $res;
+    }
 }

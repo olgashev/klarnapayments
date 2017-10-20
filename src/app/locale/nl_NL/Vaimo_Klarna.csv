@@ -215,3 +215,5 @@
 "Pay in 15 days","Binnen 14 dagen"
 "Not available for Austria and the Netherlands","Not available for Austria and the Netherlands"
 "Klarna supports one country per store","Klarna supports one country per store"
+"Assume price in cart is valid when order is created","Assume price in cart is valid when order is created"
+"Always assume cart is accurate, even if customer information or product data has changed during checkout.","Always assume cart is accurate, even if customer information or product data has changed during checkout."

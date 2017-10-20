@@ -215,3 +215,5 @@
 "Pay in 15 days","Betala om 14 dagar"
 "Not available for Austria and the Netherlands","Inte tillgänglig för Österrike och Holland"
 "Klarna supports one country per store","Klarna stödjer bara ett land per butik"
+"Assume price in cart is valid when order is created","Utgå från att priset i varukorgen stämmer när ordern skapas"
+"Always assume cart is accurate, even if customer information or product data has changed during checkout.","Utgå från att priset i varukorgen stämmer när ordern skapas, oavsett om kund information eller produkt priser har ändrats under checkout."

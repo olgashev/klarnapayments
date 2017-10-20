@@ -907,12 +907,23 @@
                             <frontend_type>select</frontend_type>
                             <depends><show_advanced_options>1</show_advanced_options></depends>
                             <source_model>adminhtml/system_config_source_yesno</source_model>
-                            <sort_order>515</sort_order>
+                            <sort_order>552</sort_order>
                             <show_in_default>1</show_in_default>
                             <show_in_store>1</show_in_store>
                             <show_in_website>1</show_in_website>
                             <comment>Due to how discounts are added on the Klarna reservation, part capturing an order with a discount can result in too low amounts being captured. Activate on your own risk.</comment>
                         </allow_part_capture_with_discount>
+                        <assume_price_is_right translate="label comment">
+                            <label>Assume price in cart is valid when order is created</label>
+                            <frontend_type>select</frontend_type>
+                            <depends><show_advanced_options>1</show_advanced_options></depends>
+                            <source_model>adminhtml/system_config_source_yesno</source_model>
+                            <sort_order>554</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_store>1</show_in_store>
+                            <show_in_website>1</show_in_website>
+                            <comment>Always assume cart is accurate, even if customer information or product data has changed during checkout.</comment>
+                        </assume_price_is_right>
                         <force_phonenumber translate="label">
                             <label>Force entry of phonenumber</label>
                             <frontend_type>select</frontend_type>
@@ -955,6 +966,16 @@
                             <show_in_website>1</show_in_website>
                             <comment>If disabled and Guest Checkout is allowed in Magento Checkout Options, orders will be placed as guests.</comment>
                         </auto_register_guest>
+                        <api_base_url translate="label comment">
+                            <label>API callback url</label>
+                            <frontend_type>text</frontend_type>
+                            <sort_order>596</sort_order>
+                            <depends><show_advanced_options>1</show_advanced_options></depends>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                            <comment>Base url called by Klarna in push and validate, example: "https://api.store.com/". Leave empty for auto-detection.</comment>
+                        </api_base_url>
                         <user_defined_json translate="label comment">
                             <label>User Defined Variables</label>
                             <backend_model>klarna/adminhtml_system_config_backend_admin_json</backend_model>

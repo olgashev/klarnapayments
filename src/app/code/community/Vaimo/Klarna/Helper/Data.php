@@ -134,6 +134,19 @@ class Vaimo_Klarna_Helper_Data extends Mage_Core_Helper_Abstract
     const KLARNA_LOG_LEVEL_MINMIAL = 2;
     const KLARNA_LOG_LEVEL_NONE = 3;
 
+    const CONFIG_XML_PATH_KLARNA_CHECKOUT = 'payment/vaimo_klarna_checkout/';
+
+    protected $_designCheckoutConfigOptions = array(
+        'color_button',
+        'color_button_text',
+        'color_checkbox',
+        'color_checkbox_checkmark',
+        'color_header',
+        'color_link',
+        'radius_border'
+    );
+
+    protected $_storeId;
 
     public static $isEnterprise;
 
@@ -1379,4 +1392,52 @@ class Vaimo_Klarna_Helper_Data extends Mage_Core_Helper_Abstract
         return $reference;
     }
 
+    /**
+     * Get checkout design config value
+     *
+     * @param Mage_Core_Model_Store $store
+     *
+     * @return array
+     */
+    public function getCheckoutDesignConfig($store = null)
+    {
+        $currentStoreId = $this->getCurrentStoreId();
+        $designConfig = array();
+
+        foreach($this->_designCheckoutConfigOptions as $option) {
+            $path = self::CONFIG_XML_PATH_KLARNA_CHECKOUT . $option;
+            $designConfig[$option] = $this->getConfig($path, $currentStoreId);
+        }
+
+        return $designConfig;
+    }
+
+    /**
+     * Get store specific config value
+     *
+     * @param $path
+     * @param $currentStoreId
+     *
+     * @return mixed
+     */
+    public function getConfig($path, $currentStoreId)
+    {
+        $configValue = Mage::getStoreConfig($path, $currentStoreId);
+
+        return $configValue;
+    }
+
+    /**
+     * Get current store ID
+     *
+     * @return int
+     */
+    public function getCurrentStoreId()
+    {
+        if(!$this->_storeId) {
+            $this->_storeId = Mage::app()->getStore()->getId();
+        }
+
+        return $this->_storeId;
+    }
 }

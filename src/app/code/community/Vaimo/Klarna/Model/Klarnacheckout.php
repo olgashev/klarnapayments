@@ -205,7 +205,7 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
         return $res;
     }
 
-    public function validateQuote($checkoutId, $createOrderOnValidate = NULL, $createdKlarnaOrder = NULL, $logInfo = 'validate')
+    public function validateQuote($checkoutId, $createOrderOnValidate = false, $createdKlarnaOrder = NULL, $logInfo = 'validate')
     {
         $this->_init(Vaimo_Klarna_Helper_Data::KLARNA_API_CALL_KCOVALIDATE_ORDER);
         $this->_getHelper()->logKlarnaCheckoutFunctionStart($checkoutId, Vaimo_Klarna_Helper_Data::KLARNA_API_CALL_KCOVALIDATE_ORDER);
@@ -254,15 +254,16 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
         }
 
         $orderId = $this->_findAlreadyCreatedOrder($quote->getId());
-        if ($orderId>0) {
+        if ($orderId > 0) {
             $this->_getHelper()->logDebugInfo($logInfo . 'Quote order already created ' . $orderId, null, $checkoutId);
             $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
             return $this->_getHelper()->__('order already created');
         }
 
         if ($createdKlarnaOrder) {
-            $noticeTextArr = $this->_checkQuote($quote, $createdKlarnaOrder);
-            if ($noticeTextArr!=NULL) {
+            /* why shouldn't we run the other checks in _checkQuote() if no klarna order??? */
+            $noticeTextArr = $this->_checkQuote($quote, $createdKlarnaOrder, false);
+            if ($noticeTextArr != NULL) {
                 $this->_getHelper()->logDebugInfo($logInfo . 'Quote failed in checkQuote', $noticeTextArr, $checkoutId);
                 $this->_getHelper()->logKlarnaCheckoutFunctionEnd();
                 return $this->_getHelper()->__('not matching cart');
@@ -410,15 +411,24 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
         return $res;
     }
 
-
-    protected  function _checkQuote($quote, $createdKlarnaOrder)
+    /**
+     * @param Mage_Sales_Model_Quote $quote
+     * @param Varien_Object $createdKlarnaOrder
+     * @param bool $updatef
+     * @param int $orderId
+     * @return array|null
+     */
+    protected  function _checkQuote($quote, $createdKlarnaOrder, $updatef = false, $orderId = 0)
     {
         $res = NULL;
 
         try {
-
+            $itemNotices = $klarnaNotices = $shippingNotice = null;
+            if (!$updatef)
             $itemNotices = $this->_checkItems($quote, true);
+            if ($createdKlarnaOrder)
             $klarnaNotices = $this->_api->sanityTestQuote($createdKlarnaOrder, $quote);
+            if (!$updatef)
             $shippingNotice = $this->checkShippingMethod();
 
             if ($itemNotices || $klarnaNotices || $shippingNotice) {
@@ -430,6 +440,17 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
 
             $quote->collectTotals();
 
+            if ($createdKlarnaOrder) {
+                if ($orderId > 0) {
+                    $notices = $this->_api->checkOrderPrices($createdKlarnaOrder, Mage::getModel('sales/order')->load($orderId));
+                }
+                else {
+                    $notices = $this->_api->checkQuotePrices($createdKlarnaOrder, $quote, true);
+                }
+                if ($notices) {
+                    $res = array_merge((array)$res, $notices);
+                }
+            }
         } catch(Exception $e) {
             if (!$res) $res = array();
             $res[] = $e->getMessage();
@@ -475,6 +496,37 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
 
     }
 
+    /**
+     * Since calculateTotals actually reloads prices etc, we don't call it. There are three values missing on the order
+     * base_subtotal_incl_tax on order head, which seems we can't do much about
+     * original_price and base_original_price on item level
+     * There might be more, but these are what I found... so we add them manually
+     *
+     * @param Mage_Sales_Model_Quote $quote
+     */
+    protected function _addMissingValues($quote)
+    {
+        /** @var Mage_Sales_Model_Quote_Item $item */
+        foreach ($quote->getAllItems() as $item) {
+            $finalPrice = $item->getProduct()->getFinalPrice();
+            if ($item->getParentItem()) {
+                if ($item->getParentItem()->getProduct()->getTypeId() == Mage_Catalog_Model_Product_Type::TYPE_CONFIGURABLE) {
+                    $finalPrice = 0; // Unsure why it should be zero, but it is if you run collectTotals...
+                }
+            }
+            $item->setBaseOriginalPrice($finalPrice);
+            $item->getOriginalPrice(); // Causes a built in set function, so it's required
+        }
+    }
+
+    /**
+     * @param Mage_Sales_Model_Quote $quote
+     * @param Varien_Object $createdKlarnaOrder
+     * @param bool $updatef
+     * @param bool $pushf
+     * @param null|array $noticeTextArr
+     * @return Mage_Sales_Model_Order
+     */
     protected function _createTheOrder($quote, $createdKlarnaOrder, $updatef, $pushf, $noticeTextArr = NULL)
     {
         $this->_getHelper()->logDebugInfo('_createTheOrder quote ID: ' . $quote->getId());
@@ -575,9 +627,21 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
                     break;
             }
 
-            // Some variables are not saved, so we can not trust it was done some other time
-            // Before we create the order, we NEED to run this to collectTotals...
+            /*
+            Some variables are not saved, so we can not trust it was done some other time
+            Before we create the order, we NEED to run this to collectTotals...
+
+            I know I added this as a must have, but it is causing problems, especially when created during push and
+            validate. We should really NEVER change the quotes pricing, as the quote was used to create the Klarna
+            Reservation, so we should trust it, to the point of almost whatever...
+
+            I would have removed this totally, but I didn't dare to, so I make it a setting that can be enabled.
+            */
+            if ($this->getConfigData('assume_price_is_right')) {
+                $this->_addMissingValues($quote);
+            } else {
             $quote->setTotalsCollectedFlag(false);
+            }
             $quote->collectTotals();
             //$quote->save();
 
@@ -781,7 +845,14 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
                 );
         }
 
-        $noticeTextArr = $this->_checkQuote($quote, $createdKlarnaOrder);
+        $orderId = $this->_findAlreadyCreatedOrder($quote->getId());
+        $updatef = $orderId > 0;
+        if ($updatef) {
+            $this->_getHelper()->logDebugInfo('createOrderFromPush order already created, with ID ' . $orderId);
+        } else {
+            $this->_getHelper()->logDebugInfo('createOrderFromPush will create new order in Magento');
+        }
+        $noticeTextArr = $this->_checkQuote($quote, $createdKlarnaOrder, $updatef, $orderId);
 
         $this->_updateKlarnaOrderAddress($createdKlarnaOrder);
 
@@ -806,14 +877,6 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
             }
         }
 
-        $updatef = false;
-        $orderId = $this->_findAlreadyCreatedOrder($quote->getId());
-        if ($orderId>0) {
-            $this->_getHelper()->logDebugInfo('createOrderFromPush order already created, with ID ' . $orderId);
-            $updatef = true;
-        } else {
-            $this->_getHelper()->logDebugInfo('createOrderFromPush will create new order in Magento');
-        }
         $order = $this->_createTheOrder($quote, $createdKlarnaOrder, $updatef, true, $noticeTextArr);
 
         try {

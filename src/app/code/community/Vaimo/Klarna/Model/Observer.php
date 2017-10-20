@@ -238,7 +238,9 @@ class Vaimo_Klarna_Model_Observer extends Mage_Core_Model_Abstract
                     // by shipping tax. This causes Klarna Checkout to reply with an error, since totals don't match
                     // Easiest solution was to clear selected shipping method when switching...
                     $quote->getShippingAddress()->setShippingMethod(NULL)->setShippingDescription(NULL);
-                    $quote->collectTotals()->save();
+                    $quote->setTotalsCollectedFlag(false);
+                    $quote->collectTotals();
+                    $quote->save();
                 }
             }
             Mage::helper('klarna')->logKlarnaClearFunctionName();

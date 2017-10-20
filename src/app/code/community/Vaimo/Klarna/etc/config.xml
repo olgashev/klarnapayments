@@ -25,7 +25,7 @@
 --><config>
     <modules>
         <Vaimo_Klarna>
-            <version>5.5.1</version>
+            <version>5.5.7</version>
             <name>Vaimo Klarna Module</name>
             <depends>
                 <Mage_Payment/>
@@ -420,7 +420,8 @@
                 <allowspecific>0</allowspecific>
                 <active>0</active>
                 <sort_order>999</sort_order>
-                <order_status>klarna_reserved</order_status>
+                <order_status>processing</order_status>
+                <order_confirmed_status>klarna_reserved</order_confirmed_status>
                 <order_status_pending>klarna_pending</order_status_pending>
                 <order_status_denied>klarna_denied</order_status_denied>
                 <host>BETA</host>
@@ -442,12 +443,22 @@
                 <enable_validation>0</enable_validation>
                 <activate_ab_testing>0</activate_ab_testing>
                 <allow_part_capture_with_discount>0</allow_part_capture_with_discount>
+                <color_button>#1B3359</color_button>
+                <color_button_text>#FFFFFF</color_button_text>
+                <color_checkbox>#1B3359</color_checkbox>
+                <color_checkbox_checkmark>#FFFFFF</color_checkbox_checkmark>
+                <color_header>#1B3359</color_header>
+                <color_link>#000000</color_link>
+                <radius_border>0px</radius_border>
             </vaimo_klarna_checkout>
         </payment>
         <dev>
             <vaimo_klarna_debug>
                 <vaimo_klarna_log_level>0</vaimo_klarna_log_level>
             </vaimo_klarna_debug>
+        <template>
+                <!--<allow_symlink>1</allow_symlink>-->
+            </template>
         </dev>
         <icorder>
             <excluded_payment_methods>
