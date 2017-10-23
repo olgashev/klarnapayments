@@ -1213,6 +1213,78 @@
                             <show_in_store>1</show_in_store>
                             <comment>List of available shipping options that should appear in Klarna Checkout.</comment>
                         </shipping_options>
+
+                        <heading_design translate="label">
+                            <label>Checkout Design</label>
+                            <frontend_model>adminhtml/system_config_form_field_heading</frontend_model>
+                            <sort_order>1010</sort_order>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                        </heading_design>
+                        <color_button translate="label">
+                            <label>Checkout button color</label>
+                            <frontend_type>text</frontend_type>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                            <sort_order>1020</sort_order>
+                            <comment>Example: #0072CC</comment>
+                        </color_button>
+                        <color_button_text translate="label">
+                            <label>Checkout button text color</label>
+                            <frontend_type>text</frontend_type>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                            <sort_order>310</sort_order>
+                            <comment>Example: #0072CC</comment>
+                        </color_button_text>
+                        <color_checkbox translate="label">
+                            <label>Checkout checkbox color</label>
+                            <frontend_type>text</frontend_type>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                            <sort_order>320</sort_order>
+                            <comment>Example: #0072CC</comment>
+                        </color_checkbox>
+                        <color_checkbox_checkmark translate="label">
+                            <label>Checkout checkbox check mark color</label>
+                            <frontend_type>text</frontend_type>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                            <sort_order>340</sort_order>
+                            <comment>Example: #0072CC</comment>
+                        </color_checkbox_checkmark>
+                        <color_header translate="label">
+                            <label>Checkout header color</label>
+                            <frontend_type>text</frontend_type>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                            <sort_order>350</sort_order>
+                            <comment>Example: #0072CC</comment>
+                        </color_header>
+                        <color_link translate="label">
+                            <label>Checkout link color</label>
+                            <frontend_type>text</frontend_type>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                            <sort_order>360</sort_order>
+                            <comment>Example: #0072CC</comment>
+                        </color_link>
+                        <radius_border translate="label">
+                            <label>Checkout border radius</label>
+                            <frontend_type>text</frontend_type>
+                            <show_in_default>1</show_in_default>
+                            <show_in_website>1</show_in_website>
+                            <show_in_store>1</show_in_store>
+                            <sort_order>370</sort_order>
+                            <comment>Example: 0px</comment>
+                        </radius_border>
                     </fields>
                 </vaimo_klarna_checkout>
             </groups>
