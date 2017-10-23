@@ -684,7 +684,7 @@ class Vaimo_Klarna_Model_Klarnacheckout extends Vaimo_Klarna_Model_Klarnacheckou
             if ($order->getState()==Mage_Sales_Model_Order::STATE_PENDING_PAYMENT) {
                 $order->setState(
                     Mage_Sales_Model_Order::STATE_NEW,
-                    $this->getConfigData('order_status'),
+                    $this->getConfigData('order_confirmed_status'),
                     $this->_getHelper()->__('Confirmation received')
                 );
                 $order->save();
